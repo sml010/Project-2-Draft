@@ -1,0 +1,126 @@
+---
+title: "Project 2C"
+output: html_notebook
+---
+# Introduction 
+  My scientific question is: Do the amount and locations of cis-peptide bonds determine the structural differences between the 5mii and 5mif carboxyl esterase 2 proteins found in the black Perigord truffle T. melanosporum? 
+  My hypothesis is: If both 5mii and 5mif structures and sequences are aligned, then the amount and locations of their cis-peptide bonds between which amino acids can be determined and show if and how they contribute to the structural differences. 
+  These structures are for carboxyl-esterases which hydrolyze short/medium chain p-nitrophenyl esters (Cavazzini). The sequence data was obtained from EMBL-EBI and the strucutal data was obtained from PDB. The analysis methods that will be used are pairwise sequence alignment and homology modeling. 
+  
+# Packages
+Biostrings: The Biostrings package will be used for its pairwise sequence alignment function. 
+bio3d: This package will be used for homology modeling. 
+
+# Pairwise Sequence Alignment
+I am doing a pairwise sequence alignment on the two amino acid FASTAs found on EMBL-EBI to determine if they are indeed the same just to check. As they are encoding two structural variations, the amino acid sequence should be the same.  
+```{r}
+# Install Biostrings and call with library function. 
+library(Biostrings)
+
+# Make scoring matrix
+sigma <- nucleotideSubstitutionMatrix(match = 2, mismatch = -1, baseOnly = TRUE)
+# Print matrix
+sigma 
+```
+
+```{r}
+# I have been unable to download the FASTAs as .fasta or .txt files from EMBL-EBI as there was no option to so for now, I have just copy and pasted them into R and assigned them accordingly. 
+
+mii_FASTA <- "MRFTILSVLAFSLPLVLAETPAPSCPVTNVTTPQLDPITQAYADAISSRPSLFAFPLPEIRDGYQSNVSDPSTEFTTKILSLPVGPTGNVTAYLYKPVSGEREKGKDLLPVIAYFHGGGWVFGGPKSYRGLITNLIRESGAAVFFVDYTLTPKVAYPVPNEQCYAAVQWLLEHGEKLGVDPTNMGFGGDSAGGELSSSVSLLSIKRKTPLPKFQVLIYPATDLACESATFKEFPNGPGLTTDEIRFAASLFTPDPKSRLEDVASPGRASDEDLAKFPETLIVVAEVDPIRQQGEDFGRRLQKLGVRAAIIRVLGTIHGFASIDVLSEAPGAKATIELIGYKFKKALH"
+
+mif_FASTA <- "MRFTILSVLAFSLPLVLAETPAPSCPVTNVTTPQLDPITQAYADAISSRPSLFAFPLPEIRDGYQSNVSDPSTEFTTKILSLPVGPTGNVTAYLYKPVSGEREKGKDLLPVIAYFHGGGWVFGGPKSYRGLITNLIRESGAAVFFVDYTLTPKVAYPVPNEQCYAAVQWLLEHGEKLGVDPTNMGFGGDSAGGELSSSVSLLSIKRKTPLPKFQVLIYPATDLACESATFKEFPNGPGLTTDEIRFAASLFTPDPKSRLEDVASPGRASDEDLAKFPETLIVVAEVDPIRQQGEDFGRRLQKLGVRAAIIRVLGTIHGFASIDVLSEAPGAKATIELIGYKFKKALH"
+
+# Print out optimal global alignment for the sequences and the score. 
+aln = pairwiseAlignment(pattern = c("mii_FASTA", "mif_FASTA"), subject = "mii_FASTA")
+aln
+# Print optimal alignment and score
+score(aln)
+
+dist = stringDist(AAStringSet(c(mii_FASTA, mif_FASTA)))
+methods(class = class(dist))
+as.matrix(dist)
+# Based on this zeros in the distribution, we can assume that the FASTA sequences for both 5mii and 5mif to be exactly the same. 
+```
+
+```{r}
+# Install bio3d package. 
+# install.packages("bio3d", dependencies=TRUE)
+library(bio3d)
+# get.seq(pdb, outfile = "5mii.fasta", db = "nr", verbose = FALSE)
+# get.seq(pdb, outfile = "5mif.fasta", db = "nr", verbose = FALSE)
+
+# Fetching... Please wait
+# Lost connection. Retry 1 in 5min...
+# Lost connection. Retry 2 in 10min...
+# Lost connection. Retry 3 in 15min...
+# This part was taking too long so I have commented out the code above. 
+```
+
+```{r}
+# Install BiocManager if previously not installed and install msa package as an alternative to the muscle program. 
+library(BiocManager)
+BiocManager::install('msa')
+```
+```{r}
+install.packages("ggseqlogo")
+require(ggplot2)
+require(ggseqlogo)
+
+# Some sample data
+data()
+```
+
+
+```{r figurename, echo=FALSE, fig.cap="sequencelogo", out.width = '90%'}
+knitr::include_graphics("sequencelogo.png")
+```
+My sequence logo is blank because the FASTA sequences are exactly the same, indicating they have the same amino acid sequences. I just wanted to check visually the two amino acid sequences were identical before moving forward as that eliminates an extraneous variable for structural differences. The structural differences most likely arise from cis-peptide bonds. 
+```{r}
+# Use to align the pdb files of the two different structures. A workaround to using the bio3d muscle program, which I cannot get to work on my laptop with homebrew installation. 
+pdb_aln <- pdbaln(c("5mii", "5mif"), exefile='msa')
+pdb_aln
+```
+
+
+# Homology Modeling and Structural Bioinformatics 
+```{r}
+#Reads the pdb file for your protein of interest. 
+pdb <- read.pdb("5mii")
+
+# Normal mode analysis.
+modes <- nma(pdb)
+print(modes)
+plot(modes)
+
+# DCCM: dynamical cross-correlation matrix
+cm <- dccm(modes)
+plot(cm, sse=pdb)
+
+# rmsip: root mean square inner product
+modes.anm <- nma(pdb, ff="anm")
+r <- rmsip(modes, modes.anm)
+plot(r, xlab = "ANM", ylab = "C-alpha FF")
+
+```
+# Plotting the Results
+The results above for the residue cross correlation above were plotted in a heatmap with magenta to white colors indicating less correlation and cyan colors indicating stronger correlation. 
+
+```{r}
+pdb <- read.pdb("5mif")
+
+modes <- nma(pdb)
+print(modes)
+plot(modes)
+
+cm <- dccm(modes)
+plot(cm, sse=pdb)
+
+modes.anm <- nma(pdb, ff="anm")
+r <- rmsip(modes, modes.anm)
+plot(r, xlab = "ANM", ylab = "C-alpha FF")
+```
+```{r figure, echo=FALSE, fig.cap="5mif", out.width = '90%'}
+knitr::include_graphics("5mii_CP_on_5mif.png")
+```
+# Data Analysis
+I did this in PyMOL and the image above shows the 5mii cis-peptides (shown in red open boxes) superimposed on the 5mif protein structure. As the image shows, the 5mif structure is missing some of the cis-peptides that the 5mii strcture has with the red boxes not being superimposed on purple spheres. So to answer my scientific question, yes, the location and amount of cis-peptides does influence the structural differences between 5mii and 5mif. My hypothesis was also correct. I couldn't find a way to visually represent this in R, so for now, I just have an image from PyMOL as a placeholder. 
